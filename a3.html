@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AI Text Analyst — Lavender Edition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<style>
+  :root{
+    /* ====== Theme tokens (live-switched via JS) ====== */
+    --h: 265;     /* hue (lavender ~265) */
+    --s: 74%;     /* saturation */
+    --l: 62%;     /* lightness */
+    --ink: #1f2937;
+    --muted:#6b7280;
+    --bg: hsl(0 0% 98%);
+    --surface: #ffffff;
+    --border: #ececf6;
+
+    --accent: hsl(var(--h) var(--s) var(--l));
+    --accent-600: hsl(var(--h) var(--s) calc(var(--l) - 8%));
+    --accent-50: hsl(var(--h) 80% 96%);
+    --chip: hsl(var(--h) 80% 96%);
+    --chip-border: hsl(var(--h) 80% 90%);
+
+    --radius-lg: 18px;
+    --radius-md: 14px;
+    --radius-sm: 12px;
+
+    --shadow-1: 0 2px 10px rgba(27, 33, 58, .06), 0 10px 30px rgba(27, 33, 58, .06);
+    --shadow-2: 0 2px 8px rgba(27, 33, 58, .08), 0 12px 36px rgba(27, 33, 58, .10);
+
+    --focus: 0 0 0 4px color-mix(in oklab, var(--accent) 20%, transparent);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif}
+  .wrap{max-width:1040px;margin:56px auto;padding:0 22px}
+
+  /* ====== Header ====== */
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:48px;height:48px;display:grid;place-items:center;border-radius:16px;
+    background:
+      radial-gradient(120px 60px at 30% 20%, hsla(var(--h) 80% 90% / .9), transparent 60%),
+      radial-gradient(160px 80px at 80% 90%, hsla(var(--h) 80% 88% / .9), transparent 60%),
+      #fff;
+    border:1px solid var(--border); box-shadow: var(--shadow-1);
+    color: var(--accent); font-weight:800; letter-spacing:.4px
+  }
+  h1{margin:0;font-size:clamp(1.1rem,1.3vw+1rem,1.6rem)}
+  .sub{margin-top:2px;font-size:12.5px;color:var(--muted)}
+
+  /* ====== Controls bar ====== */
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .surface-chip{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-1)
+  }
+  select{
+    appearance:none;background:#fff;border:1px solid var(--border);border-radius:12px;
+    padding:9px 12px; font: inherit; outline: none; transition: box-shadow .2s, border-color .2s
+  }
+  select:focus{ box-shadow: var(--focus); border-color: color-mix(in oklab, var(--accent) 35%, #ccc) }
+
+  /* ====== Cards / glass ====== */
+  .card{
+    position:relative; background: color-mix(in oklab, #fff 90%, var(--accent) 2%);
+    border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; margin-bottom:14px;
+    box-shadow: var(--shadow-1); overflow:hidden; animation: rise .5s ease both
+  }
+  .card::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(400px 120px at 100% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 50%);
+  }
+  @keyframes rise{ from{ transform: translateY(4px); opacity:.0 } to{ transform: none; opacity:1 } }
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+
+  /* ====== Inputs ====== */
+  textarea{
+    width:100%; min-height:200px; resize:vertical;
+    background:linear-gradient(180deg, #fff, #fff) padding-box,
+               linear-gradient(180deg, var(--accent-50), #fff) border-box;
+    border:1px solid var(--border); border-radius:16px; padding:14px 16px; outline:none;
+    transition: box-shadow .2s, border-color .2s
+  }
+  textarea:focus{ border-color: color-mix(in oklab, var(--accent) 40%, #cbd5ff); box-shadow: var(--focus) }
+
+  .muted{color:var(--muted)} .small{font-size:12.5px}
+
+  /* ====== Buttons with ripple ====== */
+  .btn{
+    position:relative; overflow:hidden; isolation:isolate;
+    appearance:none; border:1px solid var(--border); background:#fff; color:var(--ink);
+    padding:10px 14px; border-radius:14px; cursor:pointer; box-shadow:var(--shadow-1);
+    transition: transform .06s ease, box-shadow .25s ease, background .25s ease
+  }
+  .btn:hover{ box-shadow: var(--shadow-2) }
+  .btn:active{ transform: translateY(1px) }
+  .btn.primary{
+    background: linear-gradient(180deg, var(--accent), var(--accent-600)); color:#fff; border-color:transparent
+  }
+  .ripple{
+    position:absolute; border-radius:50%; pointer-events:none;
+    transform: translate(-50%, -50%); background: rgba(255,255,255,.45);
+    animation: ripple .7s ease forwards;
+    mix-blend-mode: overlay;
+  }
+  @keyframes ripple{ from{width:0;height:0;opacity:.7} to{width:420px;height:420px;opacity:0} }
+
+  /* ====== Pills / chips ====== */
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+    background: var(--chip); border:1px solid var(--chip-border); color: color-mix(in oklab, var(--accent) 50%, #0b3ea6);
+    margin: 4px 6px 0 0; font-size:12.5px
+  }
+
+  .stat{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .good{color:#059669} .bad{color:#dc2626}
+  .hl{background:var(--chip);padding:4px 8px;border-radius:8px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+  details summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+  details summary::marker, details summary::-webkit-details-marker{display:none}
+  .tw{transition: transform .2s} details[open] .tw{ transform: rotate(90deg) }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">AI</div>
+        <div>
+          <h1>Text Analyst — Lavender</h1>
+          <div class="sub">Summarize • Sentiment • Keyphrases • Readability — all offline</div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="surface-chip small">
+          <span class="muted">Summary sentences</span>
+          <input id="kRange" type="range" min="1" max="10" value="4" style="accent-color: var(--accent); width:210px">
+          <span id="kVal" class="mono">4</span>
+        </div>
+
+        <div class="surface-chip small">
+          <span class="muted">Theme</span>
+          <select id="themeSelect" title="Change color theme">
+            <option value="lavender" selected>Lavender</option>
+            <option value="mint">Mint</option>
+            <option value="coral">Coral</option>
+            <option value="amber">Amber</option>
+            <option value="slate">Slate</option>
+          </select>
+        </div>
+
+        <button class="btn primary" id="goBtn">Analyze</button>
+        <button class="btn" id="demoBtn">Load demo</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <label class="small muted">Paste any article, email, essay, or notes</label>
+      <textarea id="txt" placeholder="Type or paste text here…"></textarea>
+      <div class="small muted" style="margin-top:8px">Private by design: no network calls; everything runs in your browser.</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="stat">
+          <strong>Summary</strong>
+          <div class="small muted">Top sentences (TextRank)</div>
+        </div>
+        <div id="summary" style="margin-top:6px"></div>
+        <div class="small muted" id="timeMeta" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <div class="stat">
+          <strong>Sentiment</strong>
+          <div class="small muted">AFINN (per 100 tokens)</div>
+        </div>
+        <div style="margin-top:6px">
+          <p>Score: <b id="sentScore">0.00</b> &nbsp; · &nbsp; Positive: <span id="posCount" class="good">0</span> &nbsp; · &nbsp; Negative: <span id="negCount" class="bad">0</span></p>
+          <p class="small muted" id="sentWords"></p>
+        </div>
+        <div style="height:8px"></div>
+        <div class="stat">
+          <strong>Readability</strong>
+          <div class="small muted">Flesch-Kincaid Grade</div>
+        </div>
+        <p>Grade: <span id="fkGrade" class="hl mono">—</span> &nbsp; · &nbsp; Words: <span id="wCount" class="mono">0</span> &nbsp; · &nbsp; Sentences: <span id="sCount" class="mono">0</span></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <strong style="display:block;margin-bottom:6px">Keyphrases <span class="small muted">(RAKE-like)</span></strong>
+          <div id="rake"></div>
+        </div>
+        <div>
+          <strong style="display:block;margin-bottom:6px">Top contributing words</strong>
+          <div id="tops"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card small muted">
+      <details>
+        <summary><span class="tw">▸</span> About this page</summary>
+        <ul>
+          <li><b>TextRank</b>: sentence graph via token overlap (stopwords + stemming) → PageRank centrality.</li>
+          <li><b>Sentiment</b>: AFINN-style lexicon, normalized per 100 tokens.</li>
+          <li><b>RAKE</b>: phrases split on stopwords/punct; degree/frequency score.</li>
+          <li><b>Readability</b>: Flesch-Kincaid (approx. syllable count).</li>
+          <li>No frameworks, no CDNs; works offline.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+<script>
+/* =================== Theme switching =================== */
+const PRESETS = {
+  lavender: { h:265, s:'74%', l:'62%' },
+  mint:     { h:160, s:'52%', l:'48%' },
+  coral:    { h: 10, s:'78%', l:'62%' },
+  amber:    { h: 42, s:'90%', l:'54%' },
+  slate:    { h:220, s:'12%', l:'40%' }
+};
+const root = document.documentElement;
+function setTheme(name){
+  const p = PRESETS[name] || PRESETS.lavender;
+  root.style.setProperty('--h', p.h);
+  root.style.setProperty('--s', p.s);
+  root.style.setProperty('--l', p.l);
+}
+
+/* Button ripple utility */
+function attachRipple(el){
+  el.addEventListener('click', (e)=>{
+    const r = el.getBoundingClientRect();
+    const d = Math.max(r.width, r.height);
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    const span = document.createElement('span');
+    span.className = 'ripple';
+    span.style.left = x+'px'; span.style.top = y+'px';
+    span.style.width = span.style.height = '0px';
+    el.appendChild(span);
+    setTimeout(()=>span.remove(), 650);
+  });
+}
+
+/* =================== NLP Utils =================== */
+const STOP = new Set(["a","an","and","are","as","at","be","but","by","for","if","in","into","is","it","no","not","of","on","or","such","that","the","their","then","there","these","they","this","to","was","will","with","from","about","over","under","after","before","between","through","during","while","once","again","more","most","other","some","so","than","too","very","can","just","should","now","were","been","being","because","what","which","who","whom","why","how"]);
+const TOKEN_RE = /[A-Za-z]+/g;
+function wordsLower(s){ return (s.toLowerCase().match(TOKEN_RE)||[]); }
+function splitSentences(s){
+  return s.replace(/\s+/g,' ').split(/(?<=[.!?;])\s+(?=[A-Z"'\[])/).filter(Boolean);
+}
+
+/* Porter-ish stemmer (compact) */
+function stem(w){
+  w=w.toLowerCase(); if(w.length<3) return w;
+  const re=/^(.*?)(ing|edly|edly|ed|ly)$/; if(re.test(w)){const r=re.exec(w); const s=r[1]; if(/[aeiou]/.test(s)) w=s;}
+  if(/(.)\1$/.test(w) && !/[lsz]$/.test(w)) w=w.slice(0,-1);
+  w=w.replace(/ational$/,"ate").replace(/tional$/,"tion").replace(/izer$/,"ize").replace(/bli$/,"ble").replace(/icate$/,"ic").replace(/ful$/,"").replace(/ness$/,"");
+  if(/e$/.test(w)) w=w.replace(/e$/,"");
+  return w;
+}
+function tokensNoStopStem(s){ return wordsLower(s).filter(t=>!STOP.has(t)).map(stem); }
+
+/* AFINN (compact core) */
+const AFINN = {
+  "good":3,"great":3,"excellent":4,"amazing":4,"love":3,"like":2,"positive":2,"fortunate":2,"correct":2,"superior":2,
+  "bad":-3,"terrible":-3,"awful":-3,"hate":-3,"disgusting":-3,"horrible":-3,"negative":-2,"wrong":-2,"inferior":-2,
+  "win":2,"loss":-2,"success":2,"fail":-2,"happy":3,"joy":3,"sad":-2,"anger":-3,"fear":-2,"risk":-2,"danger":-2,
+  "safe":2,"unsafe":-2,"peace":2,"war":-3,"crash":-2,"collapse":-2,"boost":2,"growth":2,"fraud":-3,"fake":-3,"true":2,
+  "trust":2,"doubt":-1,"support":2,"oppose":-2,"benefit":2,"harm":-2,"secure":2,"insecure":-2,"brilliant":4,
+  "poor":-2,"strong":2,"weak":-2,"fast":2,"slow":-2,"clean":2,"dirty":-2,"easy":1,"hard":-1,"confident":2,"confuse":-2,
+  "shock":-2,"surprise":1,"urgent":-1,"critical":-1,"awesome":4,"fantastic":4,"worst":-3,"best":3,"mediocre":-2,"disaster":-3
+};
+
+/* RAKE-like */
+function rake(text, topK=12){
+  const raw = text.toLowerCase();
+  const phrases = raw.split(/[^a-z0-9]+/).join(" ")
+    .replace(/\b(?:${Array.from(STOP).join("|")})\b/g, "|")
+    .split("|")
+    .map(s=>s.trim())
+    .filter(s=>s.split(" ").length<=5 && s.length>2);
+  const freq = new Map(), degree = new Map();
+  for (const p of phrases){
+    const toks = p.split(" ").filter(Boolean);
+    const deg = toks.length - 1;
+    for (const t of toks){
+      freq.set(t, (freq.get(t)||0) + 1);
+      degree.set(t, (degree.get(t)||0) + deg);
+    }
+  }
+  const scores = new Map();
+  for (const p of phrases){
+    let s=0; for (const t of p.split(" ").filter(Boolean)){
+      const f=freq.get(t)||1, d=(degree.get(t)||0)+f; s += d/f;
+    }
+    scores.set(p,(scores.get(p)||0)+s);
+  }
+  return [...scores.entries()].sort((a,b)=>b[1]-a[1]).slice(0,topK).map(([k,v])=>({phrase:k,score:+v.toFixed(2)}));
+}
+
+/* TextRank summarization */
+function sentenceVectors(sentences){
+  return sentences.map(s=>{
+    const toks = tokensNoStopStem(s);
+    const m=new Map(); toks.forEach(t=>m.set(t,(m.get(t)||0)+1));
+    let norm=0; m.forEach(v=>norm+=v*v); norm=Math.sqrt(norm)||1; m.forEach((v,k)=>m.set(k,v/norm));
+    return m;
+  });
+}
+function cosineSim(a,b){ let s=0; if (a.size<b.size) [a,b]=[b,a]; b.forEach((vb,k)=>{const va=a.get(k); if(va) s+=va*vb}); return s; }
+function textrank(sentences, topK){
+  if(sentences.length===0) return [];
+  const vecs = sentenceVectors(sentences), n=sentences.length;
+  const adj = Array.from({length:n},()=>Array(n).fill(0));
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){ const w=cosineSim(vecs[i],vecs[j]); adj[i][j]=adj[j][i]=w; }
+  let pr=Array(n).fill(1/n), d=.85, eps=1e-5;
+  for(let it=0; it<100; it++){
+    const next=Array(n).fill((1-d)/n);
+    for(let i=0;i<n;i++){
+      for(let j=0;j<n;j++){
+        if(adj[j][i]>0){
+          const out=adj[j].reduce((a,b)=>a+b,0)||1;
+          next[i]+= d*pr[j]*(adj[j][i]/out);
+        }
+      }
+    }
+    let diff=0; for(let i=0;i<n;i++) diff+=Math.abs(next[i]-pr[i]); pr=next; if(diff<eps) break;
+  }
+  const idx = pr.map((v,i)=>[i,v]).sort((a,b)=>b[1]-a[1]).slice(0,Math.min(topK,n)).map(p=>p[0]).sort((a,b)=>a-b);
+  return idx.map(i=>sentences[i]);
+}
+
+/* Sentiment / Readability */
+function sentiment(text){
+  const toks = wordsLower(text); let score=0,pos=0,neg=0;
+  for(const t of toks){ const s=AFINN[t]; if(s){ score+=s; if(s>0) pos++; else if(s<0) neg++; } }
+  const per100 = toks.length ? (score/toks.length*100) : 0;
+  return {score:per100,pos,neg,tokens:toks};
+}
+function countSyllables(word){
+  word=word.toLowerCase(); if(word.length<=3) return 1;
+  let syl=(word.match(/[aeiouy]{1,2}/g)||[]).length; syl -= /e$/.test(word)?1:0; return Math.max(1,syl);
+}
+function readability(text){
+  const sents=splitSentences(text); const toks=wordsLower(text);
+  let syll=0; for(const w of toks) syll+=countSyllables(w);
+  const S=sents.length||1, W=toks.length||1;
+  const grade=0.39*(W/S)+11.8*(syll/W)-15.59;
+  return {grade:Math.max(0,grade), words:W, sentences:S};
+}
+
+/* =================== Wire UI =================== */
+const txt=document.getElementById('txt');
+const kRange=document.getElementById('kRange');
+const kVal=document.getElementById('kVal');
+const goBtn=document.getElementById('goBtn');
+const demoBtn=document.getElementById('demoBtn');
+const themeSelect=document.getElementById('themeSelect');
+
+const summaryEl=document.getElementById('summary');
+const timeMeta=document.getElementById('timeMeta');
+const sentScore=document.getElementById('sentScore');
+const posCount=document.getElementById('posCount');
+const negCount=document.getElementById('negCount');
+const sentWords=document.getElementById('sentWords');
+const fkGrade=document.getElementById('fkGrade');
+const wCount=document.getElementById('wCount');
+const sCount=document.getElementById('sCount');
+const rakeEl=document.getElementById('rake');
+const topsEl=document.getElementById('tops');
+
+kRange.addEventListener('input', ()=>kVal.textContent=kRange.value);
+[goBtn, demoBtn].forEach(attachRipple);
+
+goBtn.addEventListener('click', ()=>{
+  const t0=performance.now();
+  const text = txt.value.trim();
+  if(!text){ alert('Paste some text first.'); return; }
+
+  const sents=splitSentences(text);
+  const K=Math.min(parseInt(kRange.value,10), Math.max(1,sents.length));
+  const topSents=textrank(sents,K);
+  summaryEl.innerHTML=topSents.map(s=>`<p>${s}</p>`).join("");
+  timeMeta.textContent=`${(performance.now()-t0).toFixed(0)} ms`;
+
+  const se=sentiment(text);
+  sentScore.innerHTML = `<span class="${se.score>=0?'good':'bad'}">${se.score.toFixed(2)}</span>`;
+  posCount.textContent=se.pos; negCount.textContent=se.neg;
+
+  const posWords=[], negWords=[];
+  for(const w of se.tokens){ const s=AFINN[w]; if(s>0) posWords.push(w); else if(s<0) negWords.push(w); }
+  const uniq=a=>Array.from(new Set(a)).slice(0,16).join(', ');
+  sentWords.innerHTML = `<span class="good">+ ${uniq(posWords)}</span><br><span class="bad">− ${uniq(negWords)}</span>`;
+
+  const rd=readability(text);
+  fkGrade.textContent=rd.grade.toFixed(1);
+  wCount.textContent=rd.words;
+  sCount.textContent=rd.sentences;
+
+  const rk=rake(text,14);
+  rakeEl.innerHTML=rk.map(o=>`<span class="pill">${o.phrase} <span class="small muted">(${o.score})</span></span>`).join("");
+
+  const toks=tokensNoStopStem(text); const tf=new Map(); toks.forEach(t=>tf.set(t,(tf.get(t)||0)+1));
+  let norm=0; tf.forEach(v=>norm+=v*v); norm=Math.sqrt(norm)||1;
+  const arr=[]; tf.forEach((v,k)=>arr.push([k,v/norm])); arr.sort((a,b)=>b[1]-a[1]);
+  topsEl.innerHTML=arr.slice(0,16).map(([t,wt])=>`<span class="pill"><span class="mono">${t}</span> <span class="small muted">(${wt.toFixed(3)})</span></span>`).join("");
+});
+
+demoBtn.addEventListener('click', ()=>{
+  txt.value=`OpenAI unveiled a new model capable of running on consumer hardware, significantly reducing inference costs.
+Analysts say the move could accelerate AI adoption across small businesses by enabling private, on-device processing.
+However, experts caution that benchmarking transparency and responsible deployment guidelines are essential to avoid misuse.`;
+});
+
+/* Theme preset persistence */
+themeSelect.addEventListener('change', (e)=>{
+  setTheme(e.target.value);
+  localStorage.setItem('ai_text_theme', e.target.value);
+});
+const saved = localStorage.getItem('ai_text_theme') || 'lavender';
+themeSelect.value = saved; setTheme(saved);
+</script>
+</body>
+</html>
